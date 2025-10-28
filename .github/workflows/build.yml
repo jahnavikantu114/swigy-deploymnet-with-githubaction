@@ -15,6 +15,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0  # Shallow clones should be disabled for better analysis
+
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
@@ -52,21 +53,28 @@ jobs:
           # Push the image to ECR
           docker push 256927027886.dkr.ecr.us-east-1.amazonaws.com/ecr-img:latest
 
-    deploy:
-     needs: build
-     runs-on: [self-hosted]
-     steps:
-      - name: docker pull image
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Docker pull image
         run: docker pull 256927027886.dkr.ecr.us-east-1.amazonaws.com/ecr-img:latest
+
       - name: Image scan
-        run: trivy image 256927027886.dkr.ecr.us-east-1.amazonaws.com/ecr-img:latest > trivyimagedeploy.txt 
+        run: trivy image 256927027886.dkr.ecr.us-east-1.amazonaws.com/ecr-img:latest > trivyimagedeploy.txt
+
       - name: Stop and remove existing container
         run: |
           docker stop swiggy-clone || true
           docker rm swiggy-clone || true
+
       - name: Deploy to container
         run: docker run -d --name swiggy-clone -p 3000:3000 256927027886.dkr.ecr.us-east-1.amazonaws.com/ecr-img:latest
+
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --region us-east-1 --name EKS_CLOUD
-      - name: Deploy to kubernetes
+
+      - name: Deploy to Kubernetes
         run: kubectl apply -f deployment-service.yml --validate=false
